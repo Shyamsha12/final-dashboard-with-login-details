@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Excel Data Dashboard</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f0f8ff;
+            margin: 0;
+            padding: 0;
+        }
+
+        .container {
+            width: 90%;
+            margin: 20px auto;
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+
+        #file-upload-container {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        #excel-file {
+            display: none;
+        }
+
+        .upload-button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .upload-button:hover {
+            background-color: #3e8e41;
+        }
+
+        #workbook-selector-container {
+            text-align: center;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #workbook-selector {
+            padding: 8px;
+            border-radius: 4px;
+            border: 1px solid #ccc;
+            margin-right: 10px;
+        }
+
+        #delete-button {
+            background-color: #f44336; /* Red color for delete */
+            color: white;
+            padding: 8px 12px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        #delete-button:hover {
+            background-color: #da190b; /* Darker red on hover */
+        }
+
+        #navigation-container {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .dashboard-page {
+            margin-bottom: 20px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background-color: #f9f9f9;
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+            font-size: 0.9em;
+        }
+
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+            word-break: break-word;
+        }
+
+        th {
+            background-color: #f2f2f2;
+        }
+
+        .nav-button {
+            margin: 0 5px;
+            padding: 8px 12px;
+            background-color: #007BFF;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .nav-button:hover {
+            background-color: #0056b3;
+        }
+
+        #search-container {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        #search-input {
+            padding: 8px;
+            border-radius: 4px;
+            border: 1px solid #ccc;
+            width: 300px;
+        }
+
+        #workbook-list-container {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        #workbook-list {
+            width: 300px;
+            padding: 8px;
+            border-radius: 4px;
+            border: 1px solid #ccc;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>Excel Data Dashboard</h1>
+
+        <div id="file-upload-container">
+            <input type="file" id="excel-file" accept=".xlsx, .xls" multiple>
+            <button class="upload-button" onclick="document.getElementById('excel-file').click()">Upload Excel File(s)</button>
+        </div>
+
+        <div id="workbook-list-container">
+            <label for="workbook-list">Select Workbooks to Delete:</label>
+            <select id="workbook-list" multiple>
+            </select>
+            <button id="delete-button" onclick="deleteSelectedWorkbooks()">Delete Workbooks</button>
+        </div>
+
+        <div id="workbook-selector-container">
+            <label for="workbook-selector">Select Workbook:</label>
+            <select id="workbook-selector" onchange="displaySelectedWorkbookData()">
+                <option value="">Select a Workbook</option>
+            </select>
+        </div>
+
+        <div id="navigation-container">
+            <p id="sheet-navigation"></p>
+        </div>
+
+        <div id="search-container">
+            <input type="text" id="search-input" placeholder="Search in the current sheet" oninput="searchTable()">
+        </div>
+
+        <div id="dashboard-container">
+            <!-- Excel data will be dynamically inserted here -->
+        </div>
+
+         <button onclick="logout()">Logout</button>
+    </div>
+
+    <script>
+        let workbookData = {};
+        let workbookNames = [];
+        let currentSheet = 0;
+        let sheetsArray = [];
+        let currentSheetIndex = 0;
+        const localStorageKey = 'excelData';
+
+        document.getElementById('excel-file').addEventListener('change', handleFileSelect, false);
+
+        window.onload = function() {
+            // Check if the user is logged in
+            if (!localStorage.getItem('username')) {
+                window.location.href = 'index.html'; // Redirect to login page if not logged in
+            }
+            loadDataFromLocalStorage();
+        };
+
+         function logout() {
+            localStorage.removeItem('username'); // Remove username from local storage
+            localStorage.removeItem('password'); // Optionally, remove password as well
+            window.location.href = 'index.html'; // Redirect to the login page
+        }
+
+        function handleFileSelect(evt) {
+            const files = evt.target.files;
+
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                const reader = new FileReader();
+
+                reader.onload = function(e) {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+
+                    const workbookName = file.name;
+                    workbookNames.push(workbookName);
+                    workbookData[workbookName] = workbook;
+
+                    updateWorkbookSelector();
+                    updateWorkbookList(); // Update the multi-select list
+                    saveDataToLocalStorage();
+                };
+
+                reader.onerror = function(ex) {
+                    console.log(ex);
+                };
+
+                reader.readAsArrayBuffer(file);
+            }
+        }
+
+        function updateWorkbookSelector() {
+            const selector = document.getElementById('workbook-selector');
+            selector.innerHTML = '<option value="">Select a Workbook</option>';
+            workbookNames.forEach(name => {
+                const option = document.createElement('option');
+                option.value = name;
+                option.textContent = name;
+                selector.appendChild(option);
+            });
+        }
+
+        function updateWorkbookList() {
+            const workbookList = document.getElementById('workbook-list');
+            workbookList.innerHTML = ''; // Clear existing options
+            workbookNames.forEach(name => {
+                const option = document.createElement('option');
+                option.value = name;
+                option.textContent = name;
+                workbookList.appendChild(option);
+            });
+        }
+
+        function displaySelectedWorkbookData() {
+            const selector = document.getElementById('workbook-selector');
+            const selectedWorkbookName = selector.value;
+            const dashboardContainer = document.getElementById('dashboard-container');
+            const navigationContainer = document.getElementById('sheet-navigation');
+
+            dashboardContainer.innerHTML = '';
+            navigationContainer.innerHTML = '';
+
+            if (selectedWorkbookName && workbookData[selectedWorkbookName]) {
+                const workbook = workbookData[selectedWorkbookName];
+                sheetsArray = workbook.SheetNames;
+                currentSheetIndex = 0;
+
+                sheetsArray.forEach((sheetName, index) => {
+                    const navButton = document.createElement('button');
+                    navButton.className = 'nav-button';
+                    navButton.innerText = sheetName;
+                    navButton.onclick = () => {
+                        showSheet(index);
+                    };
+                    navigationContainer.appendChild(navButton);
+                });
+
+                showSheet(0);
+            } else {
+                dashboardContainer.textContent = 'No workbook selected.';
+            }
+        }
+
+        function showSheet(index) {
+            currentSheetIndex = index;
+
+            const selectedWorkbookName = document.getElementById('workbook-selector').value;
+            const dashboardContainer = document.getElementById('dashboard-container');
+            dashboardContainer.innerHTML = '';
+
+            if (selectedWorkbookName && workbookData[selectedWorkbookName]) {
+                const workbook = workbookData[selectedWorkbookName];
+                const sheetName = sheetsArray[index];
+                const worksheet = workbook.Sheets[sheetName];
+                const htmlTable = XLSX.utils.sheet_to_html(worksheet, { header: 1 });
+
+                const sheetDiv = document.createElement('div');
+                sheetDiv.className = 'dashboard-page';
+                sheetDiv.innerHTML = `<h2>${sheetName}</h2>${htmlTable}`;
+                dashboardContainer.appendChild(sheetDiv);
+            }
+
+             document.getElementById('search-input').value = '';
+        }
+
+        function searchTable() {
+            const input = document.getElementById("search-input").value.toUpperCase();
+            const dashboardContainer = document.getElementById('dashboard-container');
+            const table = dashboardContainer.querySelector('table');
+
+            if (!table) return;
+
+            const tr = table.getElementsByTagName("tr");
+
+            for (let i = 0; i < tr.length; i++) {
+                const td = tr[i].getElementsByTagName("td");
+                let found = false;
+                for (let j = 0; j < td.length; j++) {
+                    const cell = td[j];
+                    if (cell) {
+                        const textValue = cell.textContent || cell.innerText;
+                        if (textValue.toUpperCase().indexOf(input) > -1) {
+                            found = true;
+                            break;
+                        }
+                    }
+                }
+                if (found) {
+                    tr[i].style.display = "";
+                } else {
+                    tr[i].style.display = "none";
+                }
+            }
+        }
+
+        function deleteSelectedWorkbooks() {
+            const workbookList = document.getElementById('workbook-list');
+            const selectedWorkbookNames = Array.from(workbookList.selectedOptions).map(option => option.value);
+
+            if (selectedWorkbookNames.length > 0) {
+                selectedWorkbookNames.forEach(workbookName => {
+                    // Remove from workbookData
+                    delete workbookData[workbookName];
+
+                    // Remove from workbookNames
+                    workbookNames = workbookNames.filter(name => name !== workbookName);
+                });
+
+                // Update workbook selector and list
+                updateWorkbookSelector();
+                updateWorkbookList();
+
+                // Clear dashboard if the selected workbook was displayed
+                const dashboardContainer = document.getElementById('dashboard-container');
+                const selectedWorkbookName = document.getElementById('workbook-selector').value;
+                if (selectedWorkbookNames.includes(selectedWorkbookName)) {
+                    dashboardContainer.innerHTML = '';
+                    document.getElementById('workbook-selector').value = ''; // Clear selection
+                }
+
+                // Save updated data to localStorage
+                saveDataToLocalStorage();
+
+                console.log(`Workbooks "${selectedWorkbookNames.join(', ')}" deleted.`);
+            } else {
+                alert('Please select workbooks to delete.');
+            }
+        }
+
+
+        function saveDataToLocalStorage() {
+            const dataToStore = {
+                workbookData: workbookData,
+                workbookNames: workbookNames,
+                currentSheet: currentSheet,
+                sheetsArray: sheetsArray,
+                currentSheetIndex: currentSheetIndex
+            };
+            localStorage.setItem(localStorageKey, JSON.stringify(dataToStore));
+        }
+
+        function loadDataFromLocalStorage() {
+            const storedData = localStorage.getItem(localStorageKey);
+            if (storedData) {
+                const parsedData = JSON.parse(storedData);
+                workbookData = parsedData.workbookData;
+                workbookNames = parsedData.workbookNames;
+                currentSheet = parsedData.currentSheet;
+                sheetsArray = parsedData.sheetsArray;
+                currentSheetIndex = parsedData.currentSheetIndex;
+
+                updateWorkbookSelector();
+                updateWorkbookList(); // Update the multi-select list
+                if (workbookNames.length > 0) {
+                    document.getElementById('workbook-selector').value = workbookNames[0];
+                    displaySelectedWorkbookData();
+                }
+            }
+        }
+    </script>
+
+</body>
+</html>

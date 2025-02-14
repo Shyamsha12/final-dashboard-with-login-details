@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login/Signup</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f0f8ff;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .container {
+            width: 400px;
+            padding: 20px;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+
+        h2 {
+            text-align: center;
+            color: #333;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            color: #555;
+        }
+
+        input[type="text"],
+        input[type="password"] {
+            width: 100%;
+            padding: 8px;
+            border-radius: 4px;
+            border: 1px solid #ccc;
+            box-sizing: border-box;
+        }
+
+        button {
+            background-color: #007BFF;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            width: 100%;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        .error-message {
+            color: red;
+            margin-top: 5px;
+            text-align: center;
+        }
+
+        .toggle-form {
+            text-align: center;
+            margin-top: 10px;
+        }
+
+        .toggle-form a {
+            color: #007BFF;
+            text-decoration: none;
+        }
+
+        .toggle-form a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container" id="login-container">
+        <h2>Login</h2>
+        <div class="form-group">
+            <label for="login-username">Username:</label>
+            <input type="text" id="login-username" name="login-username">
+        </div>
+        <div class="form-group">
+            <label for="login-password">Password:</label>
+            <input type="password" id="login-password" name="login-password">
+        </div>
+        <button onclick="login()">Login</button>
+        <p id="login-error" class="error-message"></p>
+        <div class="toggle-form">
+            <a href="#" onclick="toggleForm('signup')">Don't have an account? Sign up</a>
+        </div>
+    </div>
+
+    <div class="container" id="signup-container" style="display: none;">
+        <h2>Sign Up</h2>
+        <div class="form-group">
+            <label for="signup-username">Username:</label>
+            <input type="text" id="signup-username" name="signup-username">
+        </div>
+        <div class="form-group">
+            <label for="signup-password">Password:</label>
+            <input type="password" id="signup-password" name="signup-password">
+        </div>
+         <div class="form-group">
+            <label for="signup-confirm-password">Confirm Password:</label>
+            <input type="password" id="signup-confirm-password" name="signup-confirm-password">
+        </div>
+        <button onclick="signup()">Sign Up</button>
+        <p id="signup-error" class="error-message"></p>
+        <div class="toggle-form">
+            <a href="#" onclick="toggleForm('login')">Already have an account? Login</a>
+        </div>
+    </div>
+
+    <script>
+        function toggleForm(formId) {
+            document.getElementById('login-container').style.display = (formId === 'login') ? 'block' : 'none';
+            document.getElementById('signup-container').style.display = (formId === 'signup') ? 'block' : 'none';
+        }
+
+        function signup() {
+            const username = document.getElementById('signup-username').value;
+            const password = document.getElementById('signup-password').value;
+            const confirmPassword = document.getElementById('signup-confirm-password').value;
+            const errorDisplay = document.getElementById('signup-error');
+
+            if (password !== confirmPassword) {
+                errorDisplay.textContent = "Passwords do not match.";
+                return;
+            }
+
+            if (!username || !password) {
+                errorDisplay.textContent = "Please fill in all fields.";
+                return;
+            }
+
+            // Store user data (in localStorage for simplicity)
+            localStorage.setItem('username', username);
+            localStorage.setItem('password', password);
+
+            errorDisplay.textContent = "Signup successful!  Redirecting to login...";
+            setTimeout(() => {
+                toggleForm('login');
+                errorDisplay.textContent = ""; // Clear the message
+            }, 1500); // Redirect after 1.5 seconds
+        }
+
+        function login() {
+            const username = document.getElementById('login-username').value;
+            const password = document.getElementById('login-password').value;
+            const storedUsername = localStorage.getItem('username');
+            const storedPassword = localStorage.getItem('password');
+            const errorDisplay = document.getElementById('login-error');
+
+            if (username === storedUsername && password === storedPassword) {
+                errorDisplay.textContent = "Login successful! Redirecting...";
+                setTimeout(() => {
+                    window.location.href = 'dashboard.html'; // Redirect to the dashboard
+                }, 1500);
+            } else {
+                errorDisplay.textContent = "Invalid username or password.";
+            }
+        }
+    </script>
+
+</body>
+</html>
